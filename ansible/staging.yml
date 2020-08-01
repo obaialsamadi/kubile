@@ -1,0 +1,30 @@
+---
+- name: Master Node Configuration
+  hosts: masters
+  remote_user: user
+  pre_tasks:
+  - name: "Installing Base Dependencies"
+    block :
+    - name: 'install python'
+      raw: 'apt-get install -yq python'
+    - name: 'install sudo'
+      raw: 'apt-get install -yq sudo'
+    - name: 'install ca-certificates'
+      raw: 'apt-get install -yq ca-certificates'
+    - name: 'install unzip'
+      raw: 'apt-get install -yq unzip'
+    - name: 'install curl'
+      raw: 'apt-get install -yq curl'
+    - name: 'install wget'
+      raw: 'apt-get install -yq wget'
+    - name: 'install ufw'
+      raw: 'apt-get install -yq ufw'
+    - name: 'open port 8080'
+      raw: 'ufw allow 8080'
+  tags: base-config
+  roles: 
+    - install
+    - common    
+  become: true
+
+

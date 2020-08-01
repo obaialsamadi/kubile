@@ -1,0 +1,136 @@
+---
+
+- name: Setup K8s on Master Node
+  remote_user: obai
+  block:
+    - name: Install Base Docker Packages
+      apt:
+        name: ['apt-transport-https', 'software-properties-common', 'gnupg-agent', 'ca-certificates', 'curl']
+        state: present
+        update_cache: yes
+      tags:
+        - docker
+    - name: Adding Docker's Official GPG Key
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+      tags:
+        - docker
+    - name: Verifying Key Fingerprint
+      apt_key:
+        id: 0EBFCD88
+        state: present
+      tags:
+        - docker
+    - name: Setting Up Docker Repository (Buster Stable)
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian buster stable
+        state: present
+        update_cache: yes
+      tags:
+        - docker
+    - name: Updating apt Packages
+      apt:
+        update_cache: yes
+      tags:
+        - docker
+    - name: Installing Docker
+      apt:
+        # name: ['docker-ce', 'docker-ce-cli', 'containerd.io']
+        name: ['docker-ce']
+        state: present
+        update_cache: yes
+      tags:
+        - docker
+    - name: Adding Remote User "obai" to Docker Group
+      user:
+        name: "obai"
+        group: "docker"
+        append: yes
+      tags:
+        - docker
+    # - name: Set Up Docker Daemon                                                                                                                          
+    #   copy: 
+    #     src: /home/obai/Documents/KAT/ansible/roles/install/templates/daemon.json
+    #     dest: /etc/docker/daemon.json
+    #     # remote_src: yes
+    #     owner: obai
+    # - name: Create docker.service.d
+    #   raw: 'mkdir -p /etc/systemd/system/docker.service.d'
+    #   notify:
+    #     - reload systemd
+    #     - restart docker
+
+    #  # Tasks for installing Kubernetes
+    # - name: Remove swapfile from /etc/fstab
+    #   mount:
+    #     name: "{{ item }}"
+    #     fstype: swap
+    #     state: absent
+    #   with_items:
+    #     - swap
+    #     - none
+    # - name: Disable swap
+    #   command: swapoff -a
+    #   become: true
+      # become_user: root
+
+    - name: Add an apt signing key for Kubernetes
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+    - name: Adding apt repository for Kubernetes
+      apt_repository:
+        repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+        filename: kubernetes.list
+    - name: Updating apt Packages
+      apt:
+        update_cache: yes
+    - name: Install Kubernetes binaries
+      apt: 
+        name: ['kubeadm=1.15.7-00','kubelet=1.15.7-00','kubectl=1.15.7-00' ]
+        state: present
+        update_cache: yes
+    - name: Holding K8s update
+      become: yes
+      raw: 'apt-mark hold kubelet kubeadm kubectl'
+
+    - name: initialize the cluster
+      shell: kubeadm init --pod-network-cidr=10.244.0.0/16 >> cluster_initialized.txt
+      args:
+        chdir: $HOME
+        creates: cluster_initialized.txt
+      # notify:
+      #   - reload systemd
+      #   - restart docker    
+    - name: create .kube directory
+      become: yes
+      # become_user: bot
+      file:
+        path: $HOME/.kube
+        state: directory
+        mode: 075
+    - name: copy admin.conf to user's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: $HOME/.kube/config
+        remote_src: yes
+        owner: obai
+    
+    - name: install Pod network
+      become: yes
+      # become_user: obai
+      shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml >> pod_network_setup.txt
+      args:
+        chdir: $HOME
+        creates: pod_network_setup.txt
+  become: true
+
+  # - name: Setup kubeconfig for user
+  # become: no
+  # command: "{{ item }}"
+  # with_items:
+    # - mkdir -p /home/$USER/.kube
+    # - sudo cp -i /etc/kubernetes/admin.conf /home/$USER/.kube/config
+    # - sudo chown $USER:$USER /home/$USER/.kube/config

@@ -1,0 +1,5 @@
+---
+
+- import_playbook: staging.yml
+- import_playbook: setup_workers.yml
+- import_playbook: join_workers.yml

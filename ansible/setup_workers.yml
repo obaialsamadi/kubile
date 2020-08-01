@@ -1,0 +1,99 @@
+---
+
+- name: Setup K8s on Worker Node
+  hosts: workers
+  remote_user: user
+  pre_tasks:
+  - name: "Installing Base Dependencies"
+    block :
+    - name: 'install python'
+      raw: 'apt-get install -yq python'
+    - name: 'install sudo'
+      raw: 'apt-get install -yq sudo'
+    - name: 'install ca-certificates'
+      raw: 'apt-get install -yq ca-certificates'
+    - name: 'install unzip'
+      raw: 'apt-get install -yq unzip'
+    - name: 'install curl'
+      raw: 'apt-get install -yq curl'
+    - name: 'install wget'
+      raw: 'apt-get install -yq wget'
+    - name: 'install ufw'
+      raw: 'apt-get install -yq ufw'
+    - name: 'open port 8080'
+      raw: 'ufw allow 8080'
+  tags: worker-config
+  tasks:
+    - name: Install Base Docker Packages
+      apt:
+        name: ['apt-transport-https', 'software-properties-common', 'gnupg-agent', 'ca-certificates', 'curl']
+        state: present
+        update_cache: yes
+      tags:
+        - docker
+    - name: Adding Docker's Official GPG Key
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+      tags:
+        - docker
+    - name: Verifying Key Fingerprint
+      apt_key:
+        id: 0EBFCD88
+        state: present
+      tags:
+        - docker
+    - name: Setting Up Docker Repository (Buster Stable)
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian buster stable
+        state: present
+        update_cache: yes
+      tags:
+        - docker
+    - name: Updating apt Packages
+      apt:
+        update_cache: yes
+      tags:
+        - docker
+    - name: Installing Docker
+      apt:
+        # name: ['docker-ce', 'docker-ce-cli', 'containerd.io']
+        name: ['docker-ce']
+        state: present
+        update_cache: yes
+      tags:
+        - docker
+    - name: Adding Remote User "obai" to Docker Group
+      user:
+        name: "obai"
+        group: "docker"
+        append: yes
+      tags:
+        - docker
+    - name: Add an apt signing key for Kubernetes
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+      tags: kube
+    - name: Adding apt repository for Kubernetes
+      apt_repository:
+        repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+        filename: kubernetes.list
+      tags: kube
+  
+    - name: Updating apt Packages
+      apt:
+        update_cache: yes
+    - name: Install Kubernetes binaries
+      apt: 
+        name: ['kubeadm=1.15.7-00','kubelet=1.15.7-00','kubectl=1.15.7-00' ]
+        state: present
+        update_cache: yes
+      tags: kube
+      
+    - name: Holding K8s update
+      become: yes
+      raw: 'apt-mark hold kubelet kubeadm kubectl'
+      tags: kube
+  become: true
